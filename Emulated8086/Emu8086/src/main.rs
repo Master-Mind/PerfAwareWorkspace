@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::mem::swap;
 use argh::FromArgs;
 
 #[derive(FromArgs)]
@@ -16,7 +16,7 @@ struct Emu8086 {
 
 fn instruction_bin_to_mnemonic(code : u8) -> String {
     match code {
-        0b100010 => {String::from("mov")}
+        0b100010 | 0b110001 | 0b1011 | 0b101000 | 0b100011 => {String::from("mov")}
         _ => {panic!("Unimplemented code {0:b}!", code)}
     }
 }
@@ -49,6 +49,20 @@ fn reg_bin_to_mnemonic(code : u8, wide : bool) -> String {
     }
 }
 
+fn bin_to_address_calc(code : u8) -> String {
+    match code {
+        0b000 => {String::from("[bx + si]")}
+        0b001 => {String::from("[bx + di]")}
+        0b010 => {String::from("[bp + si]")}
+        0b011 => {String::from("[bx + di]")}
+        0b100 => {String::from("[si]")}
+        0b101 => {String::from("[di]")}
+        0b110 => {String::from("[bp]")}
+        0b111 => {String::from("[bi]")}
+        _ => {panic!("Unimplemented code {0:b}!", code)}
+    }
+}
+
 fn main() {
     let emu: Emu8086 = argh::from_env();
     let data = std::fs::read(emu.file).expect("Failed to open file");
@@ -56,8 +70,8 @@ fn main() {
     if emu.disassemble {
         let instruction_mask = 0b11111100;
         let mod_mask = 0b11000000;
-        let left_reg_mask = 0b00000111;
-        let right_reg_mask = 0b00111000;
+        let reg_mask = 0b00111000;
+        let rm_mask = 0b00000111;
         let d_mask = 0b00000010;
         let width_mask = 0b00000001;
 
@@ -66,21 +80,139 @@ fn main() {
         let mut i = 0;
 
         while i < data.len() {
-            let instruction_code = (data[i] & instruction_mask) >> 2;
+            let mut instruction_code = (data[i] & instruction_mask) >> 2;
             let d = (data[i] & d_mask) >> 1;
-            let width = data[i] & width_mask;
+            let mut width = data[i] & width_mask;
+            let rm;
+            let reg;
 
-            i += 1;
+            let regmod : u8;
+            let mut immediate_data : u16;
 
-            let regmod = (data[i] & mod_mask) >> 6;
-            let left_reg = (data[i] & left_reg_mask);
-            let right_reg = (data[i] & right_reg_mask) >> 3;
+                //short immediate instructions
+            if instruction_code & 0b111100 == 0b101100 {
+                instruction_code = instruction_code >> 2;
+                width = (data[i] & 0b00001000) >> 3;
+                reg = data[i] & 0b00000111;
+                i += 1;
+                immediate_data = data[i] as u16;
 
-            println!("{0} {1}, {2} {3}", instruction_bin_to_mnemonic(instruction_code),
-                     reg_bin_to_mnemonic(left_reg, width == 1),
-                    reg_bin_to_mnemonic(right_reg, width == 1), d);
+                if width == 1 {
+                    i += 1;
+                    immediate_data |= (data[i] as u16) << 8;
+                }
 
-            //println!("{0} {1} {2}", instruction_bin_to_mnemonic(instruction_code), d, width);
+                //println!("op:{0:b} D:{1:b} W:{2:b} MOD:{3:b} REG:{4:b} (imdata: {5})", instruction_code, d, width, regmod, reg, immediate_data);
+                println!("{0} {1}, {2}", instruction_bin_to_mnemonic(instruction_code),
+                         reg_bin_to_mnemonic(reg, width == 1),
+                         immediate_data);
+            }
+                //accumulator
+            else if instruction_code == 0b101000 {
+                let mut source_str: String;
+                let mut dest_str: String;
+
+                i += 1;
+                let mut address : u16 = data[i] as u16;
+                i += 1;
+                address |= (data[i] as u16) << 8;
+
+                dest_str = String::from("ax");
+                source_str = String::from(format!("[{0}]", address));
+
+                if d == 1 {
+                    swap(& mut source_str, & mut dest_str);
+                }
+
+                //println!("op:{0:b} D:{1:b} W:{2:b} ADDR:{3})", instruction_code, d, width, address);
+
+                println!("{0} {1}, {2}", instruction_bin_to_mnemonic(instruction_code),
+                         dest_str,
+                         source_str);
+            }
+            else {
+                i += 1;
+                regmod = (data[i] & mod_mask) >> 6;
+                rm = data[i] & rm_mask;
+                reg = (data[i] & reg_mask) >> 3;
+
+                let mut source_str: String;
+                let mut dest_str: String;
+
+                match regmod {
+                    0b11 => {
+                        source_str = reg_bin_to_mnemonic(reg, width == 1);
+                        dest_str = reg_bin_to_mnemonic(rm, width == 1);
+                    }
+                    0b00 => {
+                        source_str = reg_bin_to_mnemonic(reg, width == 1);
+
+                        if rm != 0b110 {
+                            dest_str = bin_to_address_calc(rm);
+                        }
+                        else {
+                            i += 1;
+                            let mut displacement : u16 = data[i] as u16;
+                            i += 1;
+                            displacement |= (data[i] as u16) << 8;
+                            dest_str = format!("[{0}]", displacement)
+                        }
+                    }
+                    0b01 => {
+                        source_str = reg_bin_to_mnemonic(reg, width == 1);
+                        dest_str = bin_to_address_calc(rm);
+                        i += 1;
+                        let displacement = data[i];
+
+                        if displacement > 0 {
+                            dest_str.pop();
+                            dest_str.push_str(" + ");
+                            dest_str.push_str(displacement.to_string().as_str());
+                            dest_str.push(']');
+                        }
+                    }
+                    0b10 => {
+                        source_str = reg_bin_to_mnemonic(reg, width == 1);
+                        dest_str = bin_to_address_calc(rm);
+                        i += 1;
+                        let mut displacement : u16 = data[i] as u16;
+                        i += 1;
+                        displacement |= (data[i] as u16) << 8;
+
+                        if displacement > 0 {
+                            dest_str.pop();
+                            dest_str.push_str(" + ");
+                            dest_str.push_str(displacement.to_string().as_str());
+                            dest_str.push(']');
+                        }
+                    }
+                    _ => {panic!("Unknown MOD {0}!", regmod)}
+                }
+
+                if instruction_code == 0b110001 {
+                    i += 1;
+                    immediate_data = data[i] as u16;
+
+                    if width == 1 {
+                        i += 1;
+                        immediate_data |= (data[i] as u16) << 8;
+                        source_str = format!("word {0}", immediate_data);
+                    }
+                    else {
+                        source_str = format!("byte {0}", immediate_data);
+                    }
+                }
+                else if d == 1 {
+                    swap(& mut source_str, & mut dest_str);
+                }
+
+                //println!("op:{0:b} D:{1:b} W:{2:b} MOD:{3:b} REG:{4:b} R/M: {5:b} (imdata: {6:b})", instruction_code, d, width, regmod, reg, rm, immediate_data);
+
+                println!("{0} {1}, {2}", instruction_bin_to_mnemonic(instruction_code),
+                         dest_str,
+                         source_str);
+
+            }
 
             i += 1;
         }
