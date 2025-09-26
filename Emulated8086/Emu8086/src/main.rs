@@ -17,6 +17,9 @@ struct Emu8086 {
 fn instruction_bin_to_mnemonic(code : u8) -> String {
     match code {
         0b100010 | 0b110001 | 0b1011 | 0b101000 | 0b100011 => {String::from("mov")}
+        0b000000 | 0b100000 | 0b000001 => {String::from("add")}
+        0b001010 | 0b001011 => {String::from("sub")}
+        0b001110 | 0b100000 | 0b001111 => {String::from("cmp")}
         _ => {panic!("Unimplemented code {0:b}!", code)}
     }
 }
@@ -87,7 +90,7 @@ fn main() {
             let reg;
 
             let regmod : u8;
-            let mut immediate_data : u16;
+            let mut immediate_data : u16 = 0;
 
                 //short immediate instructions
             if instruction_code & 0b111100 == 0b101100 {
@@ -124,7 +127,7 @@ fn main() {
                     swap(& mut source_str, & mut dest_str);
                 }
 
-                //println!("op:{0:b} D:{1:b} W:{2:b} ADDR:{3})", instruction_code, d, width, address);
+                println!("op:{0:b} D:{1:b} W:{2:b} ADDR:{3})", instruction_code, d, width, address);
 
                 println!("{0} {1}, {2}", instruction_bin_to_mnemonic(instruction_code),
                          dest_str,
@@ -138,6 +141,20 @@ fn main() {
 
                 let mut source_str: String;
                 let mut dest_str: String;
+                let mut instr_str: String;
+
+                //weird logic for arithmetic ops with immediates
+                if instruction_code == 0b100000 {
+                    match reg {
+                        0b000 => {instr_str = String::from("add")}
+                        0b101 => {instr_str = String::from("sub")}
+                        0b111 => {instr_str = String::from("cmp")}
+                        _ => {panic!("Unimplemented arithmatic immediate case {0}!", reg)}
+                    }
+                }
+                else {
+                    instr_str = instruction_bin_to_mnemonic(instruction_code);
+                }
 
                 match regmod {
                     0b11 => {
@@ -206,9 +223,9 @@ fn main() {
                     swap(& mut source_str, & mut dest_str);
                 }
 
-                //println!("op:{0:b} D:{1:b} W:{2:b} MOD:{3:b} REG:{4:b} R/M: {5:b} (imdata: {6:b})", instruction_code, d, width, regmod, reg, rm, immediate_data);
+                println!("op:{0:b} D:{1:b} W:{2:b} MOD:{3:b} REG:{4:b} R/M: {5:b} (imdata: {6:b})", instruction_code, d, width, regmod, reg, rm, immediate_data);
 
-                println!("{0} {1}, {2}", instruction_bin_to_mnemonic(instruction_code),
+                println!("{0} {1}, {2}", instr_str,
                          dest_str,
                          source_str);
 
