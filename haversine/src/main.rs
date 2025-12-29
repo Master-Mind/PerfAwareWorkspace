@@ -1,9 +1,13 @@
+mod profiler;
+
+use std::arch::x86_64::_rdtsc;
 use rand::prelude::*;
 use std::fmt::Write;
 use std::time::Instant;
 use argh::FromArgs;
 use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
+use crate::profiler::{Profiler, TraceAnchor};
 
 //#[global_allocator]
 //static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
@@ -81,30 +85,45 @@ struct Pairs {
     pairs : Vec<Pair>
 }
 
-fn run_haversine_on_file(file_name : &String) {
-    println!("Parsing {0}", file_name);
-    let now = Instant::now();
-    let pairs : Pairs = simd_json::from_reader(std::fs::File::open(file_name).unwrap()).unwrap();
-    let elapsed = now.elapsed();
+unsafe fn test1() -> u64 {
+    _rdtsc()
+}
 
-    println!("Parsed {0} in {1:.2?}", file_name, elapsed);
+unsafe fn load_data<'a>(file_name: &String, profiler: &'a mut Profiler<'a>) -> String {
+    let t = profiler.block_trace("load file");
+    std::fs::read_to_string(file_name).unwrap()
+}
 
-    println!("Haversining {0}", file_name);
-    let now = Instant::now();
+unsafe fn get_pairs<'a>(contents: &mut String, profiler: &'a mut Profiler<'a>) -> Pairs {
+    let t = profiler.block_trace("parse file");
+    simd_json::from_str(&mut *contents).unwrap()
+}
+
+unsafe fn run_haversine_on_file<'a>(file_name : &String, profiler: &'a mut Profiler<'a>) {
+    let t1 = profiler.block_trace("total reference haversine");
+    let mut contents = load_data(file_name, profiler);
+
+    let pairs : Pairs = get_pairs(&mut contents, profiler);
     let mut sum = 0.0;
 
-    for pair in pairs.pairs {
-        sum += reference_haversine(pair.x0, pair.y0, pair.x1, pair.y1, 6372.8);
+    {
+        //note: anonymous variables seem to get dropped immediately based on the timing
+        let t2 = profiler.block_trace("reference haversining");
+
+        for pair in pairs.pairs {
+            sum += reference_haversine(pair.x0, pair.y0, pair.x1, pair.y1, 6372.8);
+        }
     }
-    let elapsed = now.elapsed();
 
-    println!("Haversined {0} in {1:.2?}", file_name, elapsed);
-
-    println!("Found a sum of: {0}", sum);
 }
 
 fn main() {
     let have : Haversine = argh::from_env();
+
+    let mut profiler: Profiler = Profiler{
+        cur_traces: vec![],
+        trace_anchors: [TraceAnchor{ total_elapsed: 0, num_elapsed: 0, label: "", parent: None };1024].to_vec()
+    };
 
     if have.regen || !std::fs::exists(&have.input_filename).unwrap() {
         println!("Generating {0}...", have.input_filename);
@@ -116,5 +135,9 @@ fn main() {
         println!("Generated {0} in {1:.2?}", have.input_filename, elapsed);
     }
 
-    run_haversine_on_file(&have.input_filename);
+    unsafe {
+        run_haversine_on_file(&have.input_filename, &mut profiler);
+    }
+
+    profiler.print_stats();
 }

@@ -1,0 +1,12 @@
+{
+  "name": "mysim86",
+  "version": "0.0.1",
+  "description": "Application for simulating the 8086.",
+  "homepage": "https://github.com/Master-Mind/PerfAwareWorkspace",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "argparse"
+    }
+  ]
+}
