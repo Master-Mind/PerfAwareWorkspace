@@ -433,3 +433,6 @@ FodyWeavers.xsd
 *.msp
 
 */vcpkg_installed/*
+
+#manually add glaze
+*/glaze/*

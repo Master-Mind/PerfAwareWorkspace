@@ -1,0 +1,10 @@
+{
+  "name": "haversine",
+  "version": "0.0.1",
+  "description": "Application for calculating haversine distances.",
+  "homepage": "https://github.com/Master-Mind/PerfAwareWorkspace",
+  "license": "MIT",
+  "dependencies": [
+    "argparse"
+  ]
+}
