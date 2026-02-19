@@ -9,7 +9,8 @@
 
 #include <mutex>
 
-typedef unsigned long long u64;
+typedef std::uint64_t u64;
+typedef std::uint8_t u8;
 
 inline u64 GuesstimateCPUFrequency()
 {
@@ -69,7 +70,7 @@ struct TraceAnchor
 	u64 bytes_processed = 0;
 	const char* label = nullptr;
 	int parent = -1;
-	int num_page_faults = 0;
+	u64 num_page_faults = 0;
 };
 
 struct TU_Profiler;
@@ -121,7 +122,7 @@ struct Trace
 
 	u64 start;
 	int id;
-	int start_page_faults;
+	u64 start_page_faults;
 	TU_Profiler* profiler;
 };
 

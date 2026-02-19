@@ -241,6 +241,233 @@ void read_test(const std::filesystem::path& input, u64 cpu_frequency)
     printTime(times[1], "Second: ");
     printTime(times[2], "Third: ");
 }
+#define LOOP_BODY(num) arr[j + num] = static_cast<char>(j + num)
+extern "C" void MOVAllBytesASM(u64 count, u8 *data);
+extern "C" void NOPAllBytesASM(u64 count);
+extern "C" void CMPAllBytesASM(u64 count);
+extern "C" void DECAllBytesASM(u64 count);
+extern "C" void NOOP1ASM(u64 count);
+extern "C" void NOOP2ASM(u64 count);
+extern "C" void NOOP4ASM(u64 count);
+extern "C" void NOOP8ASM(u64 count);
+extern "C" void NOOP16ASM(u64 count);
+extern "C" void READ_8x1(u64 count, u8* data);
+extern "C" void READ_8x2(u64 count, u8* data);
+extern "C" void READ_8x3(u64 count, u8* data);
+extern "C" void READ_8x4(u64 count, u8* data);
+extern "C" void READ_16x2(u64 count, u8* data);
+extern "C" void READ_32x2(u64 count, u8* data);
+extern "C" void READ_32x4(u64 count, u8* data);
+extern "C" void TEST_CACHE(u64 count, u8* data, u64 mask);
+void mem_test()
+{
+    constexpr int num_reps = 10;
+    constexpr size_t buff_size = 2u << 29;
+    u8* tempdata = static_cast<u8 *>(malloc(buff_size));
+    u8* data = tempdata + 1;
+
+    {
+        SCOPED_TRACE("Mem Test READ 32x4", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_32x4(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Page fault cleaner", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFFFFFF);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Cache Test 256b", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFF);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Cache Test 64kb", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFFFF);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Cache Test 1mb", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFFFFF);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Cache Test 16mb", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFFFFFF);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Cache Test 268mb", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; ++i)
+        {
+            TEST_CACHE(buff_size, data, 0xFFFFFFF);
+        }
+    }
+
+    free(tempdata);
+
+    return;
+
+    {
+        SCOPED_TRACE("Mem Test READ     1", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_8x1(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test READ     2", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_8x2(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test READ     3", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_8x3(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test READ     4", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_8x4(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test READ 16x2", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_16x2(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test READ 32x2", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            READ_32x2(buff_size, data);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test NOOP 1", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            NOOP16ASM(buff_size);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test MOV", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            u8* arr = static_cast<u8*>(malloc(buff_size));
+
+            MOVAllBytesASM(buff_size, arr);
+
+            //for (int j = 0; j < buff_size; j += 2)
+            //{
+            //}
+
+
+            free(arr);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test MOV", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            u8* arr = static_cast<u8*>(malloc(buff_size));
+
+            NOPAllBytesASM(buff_size);
+
+            //for (int j = 0; j < buff_size; j += 2)
+            //{
+            //}
+
+
+            free(arr);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test MOV", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            u8* arr = static_cast<u8*>(malloc(buff_size));
+
+            CMPAllBytesASM(buff_size);
+
+            //for (int j = 0; j < buff_size; j += 2)
+            //{
+            //}
+
+
+            free(arr);
+        }
+    }
+
+    {
+        SCOPED_TRACE("Mem Test MOV", buff_size * num_reps);
+
+        for (int i = 0; i < num_reps; i++)
+        {
+            u8* arr = static_cast<u8*>(malloc(buff_size));
+
+            DECAllBytesASM(buff_size);
+
+            //for (int j = 0; j < buff_size; j += 2)
+            //{
+            //}
+
+
+            free(arr);
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -253,6 +480,10 @@ int main(int argc, char* argv[])
 
     program.add_argument("--test_read", "-r")
         .help("Run a repitition test on file reads")
+        .flag();
+
+    program.add_argument("--mem_test", "-m")
+        .help("Run a memory bandwidth test")
         .flag();
 
     program.add_argument("--numpairs", "-n")
@@ -294,6 +525,10 @@ int main(int argc, char* argv[])
     else if (program["--test_read"] == true)
     {
         read_test(input_path, cpu_frequency);
+    }
+    else if (program["--mem_test"] == true)
+    {
+        mem_test();
     }
     else
     {

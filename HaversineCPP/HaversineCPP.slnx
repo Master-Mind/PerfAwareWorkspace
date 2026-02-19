@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="HaversineCPP.vcxproj" />
+  <Project Path="HaversineCPP.vcxproj" Id="7d7f7b57-d1a2-4ffe-8963-8d430c25461a" />
 </Solution>

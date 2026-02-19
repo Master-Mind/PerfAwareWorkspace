@@ -436,3 +436,4 @@ FodyWeavers.xsd
 
 #manually add glaze
 */glaze/*
+*.lib
