@@ -18,7 +18,7 @@ NOOP1ASM:
 .loop:
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     inc rax
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -28,7 +28,7 @@ NOOP2ASM:
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     inc rax
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -40,7 +40,7 @@ NOOP4ASM:
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     inc rax
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -56,7 +56,7 @@ NOOP8ASM:
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     inc rax
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -80,7 +80,7 @@ NOOP16ASM:
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     db 0x0f, 0x1f, 0x00 ; NOTE(casey): This is the byte sequence for a 3-byte NOP
     inc rax
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -88,9 +88,9 @@ NOOP16ASM:
         xor rax, rax
         align 64
     .loop:
-        mov r8, [rdx]
+        mov r8, [rsi]
         add rax, 8
-        cmp rax, rcx
+        cmp rax, rdi
         jb .loop
         ret
 
@@ -98,10 +98,10 @@ NOOP16ASM:
         xor rax, rax
         align 64
     .loop:
-        mov r8, [rdx]
-        mov r8, [rdx + 8]
+        mov r8, [rsi]
+        mov r8, [rsi + 8]
         add rax, 16
-        cmp rax, rcx
+        cmp rax, rdi
         jb .loop
         ret
 
@@ -123,10 +123,10 @@ READ_16x2:
     xor rax, rax
     align 64
 .loop:
-    vmovdqu xmm0, [rdx]
-    vmovdqu xmm1, [rdx + 16]
+    vmovdqu xmm0, [rsi]
+    vmovdqu xmm1, [rsi + 16]
     add rax, 32
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -134,10 +134,10 @@ READ_32x2:
     xor rax, rax
     align 64
 .loop:
-    vmovdqu ymm0, [rdx]
-    vmovdqu ymm1, [rdx + 32]
+    vmovdqu ymm0, [rsi]
+    vmovdqu ymm1, [rsi + 32]
     add rax, 64
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
@@ -145,29 +145,32 @@ READ_32x4:
     xor rax, rax
     align 64
 .loop:
-    vmovdqu ymm0, [rdx]
-    vmovdqu ymm1, [rdx + 32]
-    vmovdqu ymm2, [rdx + 64]
-    vmovdqu ymm3, [rdx + 96]
+    vmovdqu ymm0, [rsi]
+    vmovdqu ymm1, [rsi + 32]
+    vmovdqu ymm2, [rsi + 64]
+    vmovdqu ymm3, [rsi + 96]
     add rax, 128
-    cmp rax, rcx
+    cmp rax, rdi
     jb .loop
     ret
 
+;rdi: count
+;rsi: data
+;rdx: mask
 TEST_CACHE:
     xor rax, rax
-    xor rbx, rbx
-    add rbx, rdx
+    xor rcx, rcx
+    add rcx, rsi
     align 64
 .loop:
-    vmovdqu ymm0, [rbx]
-    vmovdqu ymm1, [rbx + 32]
-    vmovdqu ymm2, [rbx + 64]
-    vmovdqu ymm3, [rbx + 96]
+    vmovdqu ymm0, [rcx]
+    vmovdqu ymm1, [rcx + 32]
+    vmovdqu ymm2, [rcx + 64]
+    vmovdqu ymm3, [rcx + 96]
     add rax, 128
-    mov rbx, rax
-    and rbx, r8
-    add rbx, rdx
-    cmp rax, rcx
+    mov rcx, rax
+    and rcx, rdx
+    add rcx, rsi
+    cmp rax, rdi
     jb .loop
     ret

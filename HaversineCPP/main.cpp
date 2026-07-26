@@ -4,8 +4,9 @@
 #include <random>
 #include <cassert>
 #include <argparse/argparse.hpp>
-#include "glaze/glaze.hpp"
+#include <glaze/glaze.hpp>
 #include "Profiler.h"
+#include <stdio.h>
 std::mutex GlobalProfiler::profilers_mutex;
 std::vector<TU_Profiler*> GlobalProfiler::profilers;
 
@@ -113,9 +114,9 @@ void run_reference_haversine(const std::filesystem::path& input)
     SCOPED_TRACE("Total reference haversine", 0);
     {
         SCOPED_TRACE("Setup", 0);
-        errno_t err = fopen_s(&infile, input.string().c_str(), "rb");
+        infile = fopen(input.string().c_str(), "rb");
 
-        assert(err == 0);
+        assert(infile);
     }
 
     std::string contents;
@@ -129,7 +130,7 @@ void run_reference_haversine(const std::filesystem::path& input)
 
         if (infile)
         {
-            size_t readNum = fread_s(&contents[0], contents.size(), 1, fsize, infile);
+            size_t readNum = fread(&contents[0],1, contents.size(), infile);
 
             assert(readNum == fsize);
 
@@ -196,19 +197,19 @@ void read_test(const std::filesystem::path& input, u64 cpu_frequency)
         u64 start = __rdtsc();
 
         FILE* infile = nullptr;
-        errno_t err = fopen_s(&infile, input.string().c_str(), "rb");
+        infile = fopen(input.string().c_str(), "rb");
 
         if (infile)
         {
-            fread_s(&contents[0], contents.size(), fsize, 1, infile);
+            fread(&contents[0], contents.size(), 1, infile);
 
             fclose(infile);
         }
 
         u64 dur = __rdtsc() - start;
 
-        min = min(min, dur);
-        max = max(max, dur);
+        min = std::min(min, dur);
+        max = std::max(max, dur);
         times[i] = dur;
         average += static_cast<double>(dur) / iterations;
     }

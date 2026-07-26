@@ -5,6 +5,8 @@
 #include <Psapi.h>
 #else
 #include <x86intrin.h>
+#include <stdio.h>
+#include <sys/resource.h>
 #endif
 
 #include <mutex>
@@ -20,7 +22,7 @@ inline u64 GuesstimateCPUFrequency()
 
 	while (std::chrono::high_resolution_clock::now() - start < dur);
 
-	u64 afterCycles = __rdtsc();
+	u64 afterCycles = __rdtsc() + 1;
 
 	return (afterCycles - nowCycles) * 10;
 }
@@ -29,19 +31,34 @@ struct OSHandler
 {
 	OSHandler()
 	{
+#ifdef _WIN32
 		procHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, GetCurrentProcessId());
+#else
+
+#endif
+
 	}
 
 	u64 GetPageFaults()
 	{
+#ifdef _WIN32
 		PROCESS_MEMORY_COUNTERS_EX mem;
 		mem.cb = sizeof(PROCESS_MEMORY_COUNTERS_EX);
 
 		GetProcessMemoryInfo(procHandle, reinterpret_cast<PPROCESS_MEMORY_COUNTERS>(&mem), sizeof(mem));
 
 		return mem.PageFaultCount;
+#else
+		rusage usage;
+		getrusage(RUSAGE_SELF, &usage);
+		return usage.ru_minflt + usage.ru_majflt;
+#endif
 	}
+#ifdef _WIN32
 	HANDLE procHandle;
+#else
+
+#endif
 };
 
 inline std::string humanSize(u64 bytes)
@@ -59,7 +76,7 @@ inline std::string humanSize(u64 bytes)
 	}
 
 	static char output[200];
-	sprintf_s(output, sizeof(output), "%.02lf %s", dblBytes, suffix[i]);
+	snprintf(output, sizeof(output), "%.02lf %s", dblBytes, suffix[i]);
 	return output;
 }
 
